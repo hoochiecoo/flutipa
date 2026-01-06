@@ -1,4 +1,4 @@
-name: Build Flutter iOS
+name: Build for Appetize.io
 
 on:
   push:
@@ -6,16 +6,14 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-ios:
+  build-simulator:
     runs-on: macos-latest
 
     steps:
       # 1️⃣ Checkout code
       - uses: actions/checkout@v4
 
-      # 2️⃣ Set up Flutter
-      # FIX: We add 'architecture: x64' because the default arm64 build 
-      # resolution is currently broken on new macOS runners for this action.
+      # 2️⃣ Set up Flutter (Force x64 for macos-latest compatibility)
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -23,12 +21,11 @@ jobs:
           architecture: x64
           cache: true
 
-      # 3️⃣ Create minimal Flutter project (Safe Method)
+      # 3️⃣ Create minimal Flutter project (if missing)
       - name: Create minimal Flutter project
         run: |
           if [ ! -f pubspec.yaml ]; then
-            echo "Project not found. Creating minimal Flutter project..."
-            # Create directly in current directory (.)
+            echo "Creating minimal Flutter project..."
             flutter create --org com.example --project-name my_app .
           else
             echo "Flutter project found."
@@ -38,23 +35,22 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # 5️⃣ Build iOS (Unsigned)
-      # We use --no-codesign because GitHub Actions doesn't have your
-      # Apple Developer Certificates.
-      - name: Build iOS App
-        run: flutter build ios --release --no-codesign
+      # 5️⃣ Build for Simulator (REQUIRED for Appetize)
+      # We use --debug or --release. Release is faster.
+      # This targets 'iphonesimulator', not 'iphoneos'.
+      - name: Build iOS Simulator App
+        run: flutter build ios --release --simulator --no-codesign
 
-      # 6️⃣ Convert .app to .ipa (Payload method)
-      # Create the IPA structure manually since we skipped signing
-      - name: Create IPA
+      # 6️⃣ Zip the App for Appetize
+      # Appetize expects a zipped .app bundle, NOT a Payload/.ipa
+      - name: Zip for Appetize
         run: |
-          mkdir -p Payload
-          mv build/ios/iphoneos/Runner.app Payload
-          zip -r -y app.ipa Payload
+          cd build/ios/iphonesimulator
+          zip -r ../../../appetize-build.zip Runner.app
 
-      # 7️⃣ Upload IPA
-      - name: Upload IPA
+      # 7️⃣ Upload Artifact
+      - name: Upload Simulator Build
         uses: actions/upload-artifact@v4
         with:
-          name: app-ipa
-          path: app.ipa
+          name: appetize-build
+          path: appetize-build.zip
