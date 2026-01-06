@@ -1,0 +1,74 @@
+name: Build Flutter iOS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # возможность запускать вручную
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+
+    steps:
+      # 1️⃣ Проверяем репозиторий (он может быть пустым)
+      - uses: actions/checkout@v4
+
+      # 2️⃣ Устанавливаем Flutter
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 'stable'
+
+      # 3️⃣ Создаем минимальный Flutter проект, если его нет
+      - name: Create minimal Flutter project
+        run: |
+          if [ ! -f pubspec.yaml ]; then
+            echo "Создаем минимальный проект Flutter"
+            flutter create my_app
+            mv my_app/* .
+            mv my_app/.[!.]* .
+            rmdir my_app
+          else
+            echo "Проект уже существует"
+          fi
+
+      # 4️⃣ Получаем зависимости
+      - name: Install dependencies
+        run: flutter pub get
+
+      # 5️⃣ Устанавливаем CocoaPods
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          pod install
+          cd ..
+
+      # 6️⃣ Создаем минимальный ExportOptions.plist, если нет
+      - name: Create ExportOptions.plist
+        run: |
+          mkdir -p ios
+          if [ ! -f ios/ExportOptions.plist ]; then
+            cat <<EOF > ios/ExportOptions.plist
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>method</key>
+  <string>development</string>
+  <key>signingStyle</key>
+  <string>automatic</string>
+</dict>
+</plist>
+EOF
+          fi
+
+      # 7️⃣ Собираем iOS .ipa
+      - name: Build iOS .ipa
+        run: flutter build ipa --export-options-plist=ios/ExportOptions.plist
+
+      # 8️⃣ Загружаем .ipa как артефакт
+      - name: Upload IPA
+        uses: actions/upload-artifact@v3
+        with:
+          name: app-ipa
+          path: build/ios/ipa/*.ipa
