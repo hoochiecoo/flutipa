@@ -13,7 +13,7 @@ jobs:
       # 1️⃣ Checkout code
       - uses: actions/checkout@v4
 
-      # 2️⃣ Set up Flutter (Force x64 for macos-latest compatibility)
+      # 2️⃣ Set up Flutter (Force x64 for compatibility)
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -21,7 +21,7 @@ jobs:
           architecture: x64
           cache: true
 
-      # 3️⃣ Create minimal Flutter project (if missing)
+      # 3️⃣ Create minimal Flutter project
       - name: Create minimal Flutter project
         run: |
           if [ ! -f pubspec.yaml ]; then
@@ -35,14 +35,13 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # 5️⃣ Build for Simulator (REQUIRED for Appetize)
-      # We use --debug or --release. Release is faster.
-      # This targets 'iphonesimulator', not 'iphoneos'.
+      # 5️⃣ Build for Simulator (DEBUG Mode)
+      # FIX: Changed --release to --debug because Flutter forbids release on simulators.
       - name: Build iOS Simulator App
-        run: flutter build ios --release --simulator --no-codesign
+        run: flutter build ios --debug --simulator --no-codesign
 
       # 6️⃣ Zip the App for Appetize
-      # Appetize expects a zipped .app bundle, NOT a Payload/.ipa
+      # The output path for simulator builds is build/ios/iphonesimulator
       - name: Zip for Appetize
         run: |
           cd build/ios/iphonesimulator
